@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Transaction;
 use Illuminate\Http\Request;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReportController extends Controller
 {
@@ -15,7 +16,6 @@ class ReportController extends Controller
      */
     public function index(Request $request)
     {
-        // Validacija
         $validated = $request->validate([
             'from' => 'nullable|date',
             'to'   => 'nullable|date|after_or_equal:from',
@@ -24,31 +24,22 @@ class ReportController extends Controller
         $from = $validated['from'] ?? null;
         $to   = $validated['to'] ?? null;
 
-        /**
-         * Bazinė užklausa:
-         * – tik prisijungusio vartotojo duomenys
-         * – su kategorijomis
-         * – su periodu (jei pasirinktas)
-         */
         $query = Transaction::with('category')
             ->where('user_id', auth()->id())
             ->when($from && $to, function ($q) use ($from, $to) {
                 $q->whereBetween('date', [$from, $to]);
             });
 
-        // 1️⃣ Visų įrašų ataskaita
         $transactions = (clone $query)
             ->orderBy('date', 'desc')
             ->get();
 
-        // 2️⃣ Suminė ataskaita pagal kategorijas
         $byCategory = (clone $query)
             ->selectRaw('category_id, SUM(amount) as total')
             ->groupBy('category_id')
             ->with('category')
             ->get();
 
-        // 3️⃣ Analizė: min / max / avg
         $stats = (clone $query)
             ->selectRaw('
                 MIN(amount) as min_amount,
@@ -64,5 +55,54 @@ class ReportController extends Controller
             'from',
             'to'
         ));
+    }
+
+    /**
+     * PDF eksportas
+     */
+    public function pdf(Request $request)
+    {
+        $validated = $request->validate([
+            'from' => 'nullable|date',
+            'to'   => 'nullable|date|after_or_equal:from',
+        ]);
+
+        $from = $validated['from'] ?? null;
+        $to   = $validated['to'] ?? null;
+
+        $query = Transaction::with('category')
+            ->where('user_id', auth()->id())
+            ->when($from && $to, function ($q) use ($from, $to) {
+                $q->whereBetween('date', [$from, $to]);
+            });
+
+        $transactions = (clone $query)
+            ->orderBy('date', 'desc')
+            ->get();
+
+        $byCategory = (clone $query)
+            ->selectRaw('category_id, SUM(amount) as total')
+            ->groupBy('category_id')
+            ->with('category')
+            ->get();
+
+        $stats = (clone $query)
+            ->selectRaw('
+                MIN(amount) as min_amount,
+                MAX(amount) as max_amount,
+                AVG(amount) as avg_amount
+            ')
+            ->first();
+
+        $pdf = Pdf::loadView('reports.pdf', compact(
+            'transactions',
+            'byCategory',
+            'stats',
+            'from',
+            'to'
+        ))->setPaper('a4', 'portrait');
+
+        return $pdf->download('ataskaita.pdf');
+        // jei nori atidaryti naršyklėje: return $pdf->stream('ataskaita.pdf');
     }
 }

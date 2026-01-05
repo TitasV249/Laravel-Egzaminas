@@ -23,27 +23,57 @@ Route::get('/', function () {
 */
 Route::middleware(['auth', 'verified'])->group(function () {
 
-    // Dashboard
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard
+    |--------------------------------------------------------------------------
+    */
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->name('dashboard');
 
-    // Profile
+    /*
+    |--------------------------------------------------------------------------
+    | Profile
+    |--------------------------------------------------------------------------
+    */
     Route::get('/profile', [ProfileController::class, 'edit'])
         ->name('profile.edit');
+
     Route::patch('/profile', [ProfileController::class, 'update'])
         ->name('profile.update');
+
     Route::delete('/profile', [ProfileController::class, 'destroy'])
         ->name('profile.destroy');
 
-    // Categories (klasifikatorius)
+    /*
+    |--------------------------------------------------------------------------
+    | Categories (klasifikatorius)
+    |--------------------------------------------------------------------------
+    */
     Route::resource('categories', CategoryController::class);
 
-    // Transactions (pajamos / išlaidos)
+    /*
+    |--------------------------------------------------------------------------
+    | Transactions (pajamos / išlaidos)
+    |--------------------------------------------------------------------------
+    */
     Route::resource('transactions', TransactionController::class);
 
-    // Reports
+    /*
+    |--------------------------------------------------------------------------
+    | Reports
+    |--------------------------------------------------------------------------
+    */
     Route::get('/reports', [ReportController::class, 'index'])
         ->name('reports.index');
+
+    Route::get('/reports/pdf', [ReportController::class, 'pdf'])
+        ->name('reports.pdf');
 });
 
-require __DIR__.'/auth.php';
+/*
+|--------------------------------------------------------------------------
+| Auth routes
+|--------------------------------------------------------------------------
+*/
+require __DIR__ . '/auth.php';
